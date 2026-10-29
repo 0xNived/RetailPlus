@@ -2,14 +2,16 @@ from dataclasses import dataclass
 from io import StringIO
 import csv
 import re
+from time import perf_counter
 
 import pandas as pd
 import pandera.pandas as pa
 from rapidfuzz import fuzz, process
+from .retail import guess_mapping, eligibility, quality, clean_retail
 
 
-MAX_CSV_BYTES = 5 * 1024 * 1024
-MAX_CSV_ROWS = 20_000
+MAX_CSV_BYTES = 50 * 1024 * 1024
+MAX_CSV_ROWS = 100_000
 MAX_CSV_COLUMNS = 100
 EMPTY_VALUES = {"", "na", "n/a", "null", "none", "unknown", "-"}
 FIELD_ALIASES = {
@@ -32,6 +34,8 @@ class CsvResult:
 
 
 def normalize_field_name(name: str) -> str:
+    if name.strip() == "_imputed_fields":
+        return "_imputed_fields"
     normalized = re.sub(r"[^a-z0-9]+", "_", name.strip().lower()).strip("_")
     return normalized or "column"
 
@@ -120,9 +124,10 @@ def find_possible_duplicates(frame: pd.DataFrame) -> list[dict[str, object]]:
     return found
 
 
-def organize_csv(content: bytes) -> CsvResult:
+def organize_csv(content: bytes, mapping_override=None) -> CsvResult:
+    started = perf_counter()
     if not content or len(content) > MAX_CSV_BYTES:
-        raise ValueError("CSV must be between 1 byte and 5 MB")
+        raise ValueError("CSV must be between 1 byte and 50 MB")
     if content.startswith((b"\xff\xfe", b"\xfe\xff")):
         encoding = "utf-16"
     else:
@@ -148,7 +153,7 @@ def organize_csv(content: bytes) -> CsvResult:
     if frame.empty:
         raise ValueError("CSV must contain at least one data row")
     if len(frame) > MAX_CSV_ROWS or len(frame.columns) > MAX_CSV_COLUMNS:
-        raise ValueError("CSV exceeds the 20,000 row or 100 column limit")
+        raise ValueError("CSV exceeds the 100,000 row or 100 column limit")
     if len(set(frame.columns)) != len(frame.columns):
         raise ValueError("CSV contains duplicate column names")
     names, matches = match_fields(frame.columns.tolist())
@@ -159,6 +164,8 @@ def organize_csv(content: bytes) -> CsvResult:
     frame.columns = names
     original_frame = frame.copy()
     frame = clean_cells(frame)
+    mapping = mapping_override if mapping_override is not None else guess_mapping(frame.columns)
+    before_quality = quality(original_frame, mapping)
     understanding = understand_dataset(frame)
     for name in names:
         for index, (original_value, new_value) in enumerate(zip(original_frame[name], frame[name]), start=1):
@@ -167,7 +174,12 @@ def organize_csv(content: bytes) -> CsvResult:
                     changes.append({"data_row": index, "field": name, "original_value": str(original_value), "new_value": "", "action": "mark_missing", "decision": "automatic"})
             elif original_value != new_value:
                 changes.append({"data_row": index, "field": name, "original_value": str(original_value), "new_value": str(new_value), "action": "normalize_whitespace", "decision": "automatic"})
-    schema = pa.DataFrameSchema({name: pa.Column(pa.String, nullable=True, required=True) for name in names}, strict=True)
+    strategies = {}
+    invalid_report = {"count": 0, "rows": [], "truncated": False}
+    if eligibility(mapping)["eligible"]:
+        frame, retail_changes, strategies, invalid_report = clean_retail(frame, mapping)
+        changes.extend(retail_changes)
+    schema = pa.DataFrameSchema({name: pa.Column(pa.String, nullable=True, required=True) for name in frame.columns}, strict=True)
     try:
         schema.validate(frame)
     except pa.errors.SchemaError as error:
@@ -186,7 +198,15 @@ def organize_csv(content: bytes) -> CsvResult:
         "missing_values": missing,
         "field_matches": matches,
         "possible_duplicates": possible_duplicates,
-        "columns": names,
+        "columns": frame.columns.tolist(),
+        "mapping": mapping,
+        "eligibility": eligibility(mapping),
+        "quality_before": before_quality,
+        "quality_after": quality(frame, mapping),
+        "invalid_transactions": invalid_report,
+        "missing_strategies": strategies,
+        "fixes": {"filled": sum(c["action"].startswith(("fill_", "impute_")) for c in changes), "casing": sum(c["action"] == "normalize_casing" for c in changes), "invalid": invalid_report["count"]},
+        "processing_seconds": round(perf_counter() - started, 3),
         "category_status": "existing" if "category" in frame else "not_generated",
         "source_format": {"encoding": encoding, "delimiter": "tab" if delimiter == "\t" else delimiter},
         "understanding": understanding,

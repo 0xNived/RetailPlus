@@ -1,0 +1,422 @@
+/* Customer surfaces use neutral ink; color is reserved for status and actions. */
+.rp-customers {
+  color: #263241;
+}
+.rp-customers .rp-card {
+  border-color: #e0e5eb;
+  background: #fff;
+  box-shadow: 0 1px 3px #17203309;
+}
+.rp-customers .rp-metric {
+  background: #fff;
+  border-color: #dfe5eb;
+  padding: 1.1rem;
+  box-shadow: 0 1px 2px #17203308;
+}
+.rp-customers .rp-metric-top {
+  color: #657185;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.rp-customers .rp-metric > strong {
+  color: #1d2938;
+  font-size: 1.8rem;
+  font-weight: 620;
+}
+.rp-customers .rp-metric-bottom small {
+  color: #788599;
+  font-size: 0.6875rem;
+}
+.rp-customers .rp-tone-sage {
+  border-top: 3px solid #6fa88c;
+}
+.rp-customers .rp-tone-purple {
+  border-top: 3px solid #9c89c8;
+}
+.rp-customers .rp-tone-orange {
+  border-top: 3px solid #df936f;
+  background: #fffcfa;
+}
+.rp-customers .rp-direct-intro {
+  color: #64748b;
+  font-size: 0.8125rem !important;
+}
+.rp-customers .rp-tabs button {
+  color: #7a8698;
+  font-size: 0.8125rem;
+}
+.rp-customers .rp-tabs button[aria-selected="true"] {
+  color: #253d31;
+  font-weight: 600;
+  border-bottom-color: #4f8068;
+}
+.rp-customers .rp-asof {
+  color: #8894a4;
+}
+.rp-customers .rp-segment-strip {
+  border-color: #e2e7ee;
+  border-radius: 0.5rem;
+}
+.rp-customers .rp-segment-strip button {
+  color: #566275;
+  border-color: #edf0f4;
+}
+.rp-customers .rp-segment-strip strong {
+  color: #344054;
+  font-weight: 600;
+}
+.rp-customers .rp-strip-share {
+  color: #8a96a6;
+}
+.rp-customers .rp-segment-strip button[aria-pressed="true"] {
+  background: #f2f6f4;
+}
+.rp-customers .rp-directory-heading h3 {
+  color: #243042;
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.rp-customers .rp-directory-heading p {
+  color: #7d899b;
+  font-size: 0.75rem;
+}
+.rp-customers .rp-count {
+  background: #f0f3f7;
+  color: #64748b;
+}
+.rp-customers .rp-search {
+  border-color: #dce2e9;
+  color: #91a0b2;
+}
+.rp-customers .rp-search input {
+  color: #344054;
+  font-size: 0.8125rem;
+}
+.rp-customers .rp-search input::placeholder {
+  color: #98a2b2;
+}
+.rp-customers .rp-directory-filters select,
+.rp-customers .rp-button {
+  color: #586679;
+  border-color: #dce2e9;
+  font-size: 0.75rem;
+}
+.rp-customers .rp-customer-extra-filters {
+  background: #f8fafc;
+  border-color: #e8edf2;
+}
+.rp-customers .rp-customer-extra-filters label {
+  color: #69768a;
+}
+.rp-customers .rp-customer-table th {
+  background: #f7f8fa;
+  color: #758195;
+  font-weight: 550;
+  font-size: 0.6875rem;
+  border-color: #e5e9ef;
+  padding-top: 0.8rem;
+  padding-bottom: 0.8rem;
+}
+.rp-customers .rp-customer-table td {
+  color: #536174;
+  font-size: 0.8125rem;
+  border-color: #edf0f4;
+  padding-top: 0.95rem;
+  padding-bottom: 0.95rem;
+}
+.rp-customers .rp-customer-table tbody tr:hover {
+  background: #f8fafc;
+}
+.rp-customers .rp-customer-identity {
+  gap: 0.8rem;
+}
+.rp-customers .rp-customer-identity button {
+  color: #243347;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.rp-customers .rp-mono {
+  color: #8995a5;
+  font-size: 0.6875rem;
+}
+.rp-customers .rp-table-amount {
+  color: #263345 !important;
+  font-weight: 600;
+}
+.rp-customers .rp-table td > small {
+  color: #8995a5;
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+.rp-customers .rp-table td strong {
+  color: #344054;
+  font-weight: 550;
+}
+.rp-customers .rp-risk-cell > span:last-child {
+  color: #7c899b;
+  font-size: 0.6875rem;
+}
+.rp-customers .rp-risk-meter {
+  background: #f1f3f6;
+  height: 0.2rem;
+}
+.rp-customers .rp-icon-button {
+  color: #8fa09b;
+}
+.rp-customers .rp-pagination {
+  color: #7f8ca0;
+  background: #fafbfc;
+}
+.rp-customers .rp-pagination .rp-button {
+  font-size: 0.6875rem;
+}
+.rp-customers p.rp-data-note {
+  color: #8c98a8;
+  font-size: 0.6875rem;
+}
+.rp-customers .rp-card-header p,
+.rp-customers .rp-retention-grid .rp-card > p {
+  color: #748196;
+}
+.rp-customers .rp-segment-cards > button > strong {
+  color: #253548;
+}
+.rp-customers .rp-segment-title,
+.rp-customers .rp-segment-cards > button > small,
+.rp-customers .rp-segment-mini {
+  color: #778599;
+}
+.rp-customers .rp-badge,
+.rp-customer-drawer .rp-badge {
+  font-size: 0.6875rem;
+  padding: 0.28rem 0.42rem;
+}
+.rp-customers .rp-badge-champions,
+.rp-customers .rp-badge-low,
+.rp-customer-drawer .rp-badge-champions,
+.rp-customer-drawer .rp-badge-low,
+.rp-customer-drawer .rp-badge-completed {
+  color: #3b7d58;
+  background: #f0f8f3;
+  border-color: #dcece1;
+}
+.rp-customers .rp-badge-loyal,
+.rp-customer-drawer .rp-badge-loyal {
+  color: #7962ad;
+  background: #f4f0fa;
+  border-color: #e8dff4;
+}
+.rp-customers .rp-badge-medium,
+.rp-customers .rp-badge-at-risk,
+.rp-customer-drawer .rp-badge-medium,
+.rp-customer-drawer .rp-badge-returned {
+  color: #9b7426;
+  background: #fff8e7;
+  border-color: #f1e5c1;
+}
+.rp-customers .rp-badge-high,
+.rp-customer-drawer .rp-badge-high,
+.rp-customer-drawer .rp-badge-cancelled {
+  color: #b76d45;
+  background: #fdf3ed;
+  border-color: #f3dfd2;
+}
+.rp-illustrated-avatar {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e2e7ed;
+  background: #f3f5f9;
+  color: #526378;
+}
+.rp-illustrated-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.rp-illustrated-avatar.rp-avatar-large {
+  width: 4.1rem;
+  height: 4.1rem;
+}
+.rp-customer-drawer {
+  background: #fff;
+  color: #344054;
+  border-left-color: #e2e7ee;
+  box-shadow: -12px 0 44px #1720331f;
+  font-family: inherit;
+}
+.rp-customer-drawer::backdrop {
+  background: #18213066;
+  backdrop-filter: blur(2px);
+}
+.rp-customer-drawer .rp-drawer-top {
+  background: #fff;
+  border-color: #e9edf2;
+  color: #718096;
+  font-size: 0.75rem;
+  padding: 1rem 1.4rem;
+}
+.rp-customer-drawer .rp-icon-button {
+  color: #8794a5;
+}
+.rp-customer-drawer .rp-profile-identity h2 {
+  color: #253246;
+  font-size: 1.45rem;
+  font-weight: 600;
+}
+.rp-customer-drawer .rp-mono {
+  color: #8b97a7;
+  font-size: 0.6875rem;
+}
+.rp-profile-demographic {
+  display: inline-block;
+  color: #758296;
+  border: 1px solid #e7ebf0;
+  background: #f8fafc;
+  padding: 0.18rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  margin-left: 0.4rem;
+}
+.rp-customer-drawer .rp-profile-badges > span:last-child:not(.rp-badge) {
+  color: #8794a5;
+  font-size: 0.6875rem;
+}
+.rp-customer-drawer .rp-profile-stats {
+  background: #f9fafc;
+  border-color: #e4e9ef;
+}
+.rp-customer-drawer .rp-profile-stats > div {
+  border-color: #e8edf2;
+}
+.rp-customer-drawer .rp-profile-stats span {
+  color: #778599;
+  font-size: 0.6875rem;
+}
+.rp-customer-drawer .rp-profile-stats strong {
+  color: #2a374b;
+  font-size: 1.3rem;
+  font-weight: 570;
+}
+.rp-customer-drawer .rp-profile-stats small {
+  color: #8f9bab;
+  font-size: 0.6875rem;
+}
+.rp-customer-drawer .rp-customer-outlook {
+  background: #fff9f5;
+  border-color: #f1dfd2;
+  border-left: 3px solid #d79770;
+}
+.rp-customer-drawer .rp-customer-outlook.low {
+  background: #f5faf7;
+  border-color: #dcece1;
+  border-left-color: #78a78d;
+}
+.rp-customer-drawer .rp-customer-outlook.medium {
+  background: #fffaf0;
+  border-color: #eee2c6;
+  border-left-color: #d5b26c;
+}
+.rp-customer-drawer .rp-customer-outlook strong {
+  color: #a77452;
+  font-size: 1.05rem;
+}
+.rp-customer-drawer .rp-customer-outlook.low strong {
+  color: #538265;
+}
+.rp-customer-drawer .rp-customer-outlook > div > span {
+  color: #677587;
+  font-size: 0.75rem;
+}
+.rp-customer-drawer .rp-customer-outlook p {
+  color: #4b5d6f;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+.rp-customer-drawer .rp-customer-outlook summary {
+  color: #65758a;
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+.rp-customer-drawer .rp-customer-outlook small {
+  color: #65758a;
+  font-size: 0.6875rem;
+  line-height: 1.7;
+}
+.rp-customer-drawer .rp-card {
+  background: #fff;
+  border-color: #e3e8ef;
+  box-shadow: 0 1px 3px #17203308;
+}
+.rp-customer-drawer h3 {
+  color: #344054;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.rp-customer-drawer .rp-card-header p {
+  color: #8d99aa;
+  font-size: 0.6875rem;
+}
+.rp-customer-drawer .rp-history-filter {
+  background: #f5f7fa;
+  border-color: #e8edf2;
+}
+.rp-customer-drawer .rp-history-filter button {
+  color: #68778b;
+  font-size: 0.6875rem;
+}
+.rp-customer-drawer .rp-history-filter button[aria-pressed="true"] {
+  background: #fff;
+  color: #536276;
+}
+.rp-customer-drawer .rp-history-list > div {
+  border-color: #e9edf2;
+  padding: 1rem 0;
+  gap: 0.8rem;
+}
+.rp-customer-drawer .rp-history-list > div > div {
+  min-width: 0;
+}
+.rp-customer-drawer .rp-history-list strong {
+  color: #526075;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.rp-customer-drawer .rp-history-list > div > strong {
+  color: #344054;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.rp-customer-drawer .rp-history-list > div > div > span:not(.rp-badge) {
+  color: #748297;
+  font-size: 0.6875rem;
+}
+.rp-customer-drawer .rp-chart-readout span,
+.rp-customer-drawer .rp-chart-foot {
+  color: #77879a;
+}
+@media (max-width: 600px) {
+  .rp-customers .rp-metric {
+    padding: 0.85rem;
+  }
+  .rp-customers .rp-metric > strong {
+    font-size: 1.55rem;
+  }
+  .rp-customers .rp-metric-top {
+    font-size: 0.6875rem;
+  }
+  .rp-customer-drawer .rp-history-list > div {
+    gap: 0.55rem;
+  }
+  .rp-customer-drawer .rp-history-list > div > strong {
+    font-size: 0.75rem;
+  }
+  .rp-customer-drawer .rp-profile-stats strong {
+    font-size: 1.15rem;
+  }
+}

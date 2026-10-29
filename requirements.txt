@@ -1,0 +1,3 @@
+# Core API, data generator, analytics and test dependencies.
+# Keep the service manifest as the single source of dependency versions.
+-r services/api-service/requirements.txt

@@ -1,4 +1,5 @@
 from io import StringIO
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 import csv
@@ -20,9 +21,21 @@ from .database import open_database
 from .schemas import CreateWorkspaceRequest, LoginRequest, LoginResult
 from pydantic import BaseModel, Field
 from .security import make_token, read_token, verify_password
+from .retail_store import DATA, save_version
 
 
-app = FastAPI(title="RetailPlus API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app):
+    # Local, single-process worker: an interrupted job is retryable, never left running.
+    with open_database() as connection:
+        connection.execute("""UPDATE retail_pipeline_jobs SET status = 'Failed',
+            error = 'API restarted before completion. Run the pipeline again.', completed_at = NOW(),
+            stages = COALESCE((SELECT jsonb_agg(CASE WHEN stage->>'status' = 'Running' THEN jsonb_set(stage, '{status}', '\"Failed\"') WHEN stage->>'status' = 'Queued' THEN jsonb_set(stage, '{status}', '\"Skipped\"') ELSE stage END) FROM jsonb_array_elements(stages) stage), '[]'::jsonb)
+            WHERE status = 'Running'""")
+    yield
+
+
+app = FastAPI(title="RetailPlus API", version="0.2.0", lifespan=lifespan)
 upload_directory = Path(__file__).resolve().parents[3] / "data" / "uploads"
 
 
@@ -81,6 +94,11 @@ def save_csv(frame: pd.DataFrame, path: Path) -> None:
 
 
 def read_organized(dataset_id: str, source: bytes) -> pd.DataFrame:
+    # The committed catalog is authoritative; a failed cache write cannot replace a version.
+    with open_database() as connection:
+        version = connection.execute("SELECT csv_path FROM dataset_versions WHERE dataset_id = %s ORDER BY revision DESC LIMIT 1", (dataset_id,)).fetchone()
+    if version:
+        return pd.read_csv(DATA / version["csv_path"], dtype="string", keep_default_na=False).fillna("")
     path = organized_path(dataset_id)
     if path.is_file():
         return pd.read_csv(path, dtype="string", keep_default_na=False).fillna("")
@@ -247,6 +265,10 @@ def list_datasets(token: dict[str, str] = Depends(selected_workspace)) -> list[d
 @app.post("/datasets/import", status_code=201)
 async def import_dataset(file: UploadFile = File(...), token: dict[str, str] = Depends(selected_workspace)) -> dict[str, object]:
     content = await read_csv_upload(file)
+    return store_import(content, file.filename or "dataset.csv", token)
+
+
+def store_import(content: bytes, filename: str, token: dict[str, str]) -> dict[str, object]:
     try:
         result = organize_csv(content)
     except ValueError as error:
@@ -257,7 +279,10 @@ async def import_dataset(file: UploadFile = File(...), token: dict[str, str] = D
     source_path = upload_directory / f"{dataset_id}.csv"
     upload_directory.mkdir(parents=True, exist_ok=True)
     source_path.write_bytes(content)
-    name = Path(file.filename or "dataset.csv").name.removesuffix(".csv")[:120] or "Untitled dataset"
+    raw_path = DATA / "raw" / f"{dataset_id}.csv"
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    raw_path.write_bytes(content)
+    name = Path(filename).stem[:120] or "Untitled dataset"
     try:
         with open_database() as connection:
             connection.execute(
@@ -268,7 +293,7 @@ async def import_dataset(file: UploadFile = File(...), token: dict[str, str] = D
             connection.execute(
                 """INSERT INTO source_files (id, import_job_id, kind, original_name, mime_type, byte_size, storage_key, checksum)
                    VALUES (%s, %s, 'CSV', %s, 'text/csv', %s, %s, %s)""",
-                (source_id, job_id, file.filename, len(content), str(dataset_id), hashlib.sha256(content).hexdigest()),
+                (source_id, job_id, filename, len(content), str(dataset_id), hashlib.sha256(content).hexdigest()),
             )
             connection.execute(
                 """INSERT INTO datasets (id, workspace_id, import_job_id, name, status, schema, record_count, updated_at)
@@ -280,9 +305,11 @@ async def import_dataset(file: UploadFile = File(...), token: dict[str, str] = D
                 (uuid4(), dataset_id, json.dumps(result.summary)),
             )
             save_csv(result.frame, organized_path(str(dataset_id)))
+            save_version(connection, str(dataset_id), result.frame, "Initial cleaning", result.changes, result.summary["mapping"])
     except Exception:
         source_path.unlink(missing_ok=True)
         organized_path(str(dataset_id)).unlink(missing_ok=True)
+        raw_path.unlink(missing_ok=True)
         raise
     return {"dataset": {"id": str(dataset_id), "name": name, "status": "READY", "record_count": result.summary["organized_rows"]}, "summary": result.summary}
 
@@ -308,6 +335,12 @@ def load_dataset(dataset_id: str, workspace_id: str) -> tuple[dict[str, object],
     if not source_path.is_file():
         raise HTTPException(status_code=404, detail="Dataset source file is missing")
     return row, source_path.read_bytes()
+
+
+@app.delete("/datasets/{dataset_id}")
+def delete_dataset(dataset_id: str, token: dict[str, str] = Depends(selected_workspace)):
+    from .dataset_deletion import delete_saved_dataset
+    return delete_saved_dataset(dataset_id, token["workspace_id"])
 
 
 @app.get("/datasets/{dataset_id}")
@@ -342,6 +375,7 @@ def style_dataset_cell(dataset_id: str, edit: CellStyleEdit, token: dict[str, st
         cell = styles.setdefault(str(edit.row_index), {}).setdefault(edit.column, {})
         cell.update(values)
         save_styles(dataset_id, styles)
+        save_version(connection, dataset_id, frame, "Format cell", [{"row": edit.row_index, "column": edit.column, "style": cell}])
         connection.execute("UPDATE datasets SET updated_at = NOW() WHERE id = %s", (dataset_id,))
     return {"row_index": edit.row_index, "column": edit.column, "style": cell}
 
@@ -358,6 +392,7 @@ def edit_dataset_cell(dataset_id: str, edit: CellEdit, token: dict[str, str] = D
         frame.at[edit.row_index, edit.column] = edit.value
         save_csv(frame, organized_path(dataset_id))
         append_edit(dataset_id, edit.row_index, edit.column, before, edit.value, "edit_cell")
+        save_version(connection, dataset_id, frame, "Edit cell", [{"row": edit.row_index, "column": edit.column, "before": before, "after": edit.value}])
         connection.execute("UPDATE datasets SET updated_at = NOW() WHERE id = %s", (dataset_id,))
     return {"row_index": edit.row_index, "column": edit.column, "value": edit.value}
 
@@ -372,6 +407,7 @@ def add_dataset_row(dataset_id: str, token: dict[str, str] = Depends(selected_wo
         frame.loc[row_index] = {column: "" for column in frame.columns}
         save_csv(frame, organized_path(dataset_id))
         append_edit(dataset_id, row_index, "*", "", "", "add_row")
+        save_version(connection, dataset_id, frame, "Add row", [{"row": row_index, "action": "add_row"}])
         connection.execute("UPDATE datasets SET record_count = %s, updated_at = NOW() WHERE id = %s", (len(frame), dataset_id))
     return {"row_index": row_index, "record_count": len(frame)}
 
@@ -391,6 +427,7 @@ def delete_dataset_row(dataset_id: str, row_index: int, token: dict[str, str] = 
         shifted = {str(int(index) - 1 if int(index) > row_index else int(index)): columns for index, columns in styles.items() if int(index) != row_index}
         save_styles(dataset_id, shifted)
         append_edit(dataset_id, row_index, "*", before, "", "delete_row")
+        save_version(connection, dataset_id, frame, "Delete row", [{"row": row_index, "before": before}])
         connection.execute("UPDATE datasets SET record_count = %s, updated_at = NOW() WHERE id = %s", (len(frame), dataset_id))
     return {"record_count": len(frame)}
 
@@ -406,8 +443,17 @@ def download_dataset(dataset_id: str, kind: str, token: dict[str, str] = Depends
         frame = read_organized(dataset_id, content)
     else:
         columns = ["data_row", "field", "original_value", "new_value", "action", "decision"]
-        frame = pd.DataFrame(result.changes, columns=columns)
-        if edits_path(dataset_id).is_file():
+        with open_database() as connection:
+            versions = connection.execute("SELECT reason, changes, revision FROM dataset_versions WHERE dataset_id = %s ORDER BY revision", (dataset_id,)).fetchall()
+        changes = [] if any(v["reason"] == "Initial cleaning" for v in versions) else result.changes.copy()
+        for version in versions:
+            for change in version["changes"]:
+                if "data_row" in change:
+                    changes.append({**change, "action": change["action"] + f" (v{version['revision']})"})
+                else:
+                    changes.append({"data_row": change.get("row", -1) + 1, "field": change.get("column", "*"), "original_value": change.get("before", ""), "new_value": change.get("after", json.dumps(change.get("style", change.get("mapping", "")))), "action": version["reason"].lower().replace(" ", "_") + f" (v{version['revision']})", "decision": "manual"})
+        frame = pd.DataFrame(changes, columns=columns)
+        if not versions and edits_path(dataset_id).is_file():
             manual = pd.read_csv(edits_path(dataset_id), names=columns, dtype="string", keep_default_na=False)
             frame = pd.concat([frame, manual], ignore_index=True)
     safe_frame = frame.map(lambda value: "'" + value if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")) else value)
@@ -420,7 +466,7 @@ async def read_csv_upload(file: UploadFile) -> bytes:
         raise HTTPException(status_code=400, detail="Choose a CSV file")
     content = await file.read(MAX_CSV_BYTES + 1)
     if len(content) > MAX_CSV_BYTES:
-        raise HTTPException(status_code=413, detail="CSV exceeds the 5 MB limit")
+        raise HTTPException(status_code=413, detail="CSV exceeds the 50 MB limit")
     return content
 
 
@@ -458,3 +504,7 @@ async def export_changes(file: UploadFile = File(...), token: dict[str, str] = D
     safe_changes.to_csv(output, index=False)
     output.seek(0)
     return StreamingResponse(iter([output.getvalue()]), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=retailplus-changes.csv"})
+
+
+from .retail_routes import install_retail_routes
+install_retail_routes(app, selected_workspace, load_dataset, read_organized, store_import, save_csv, organized_path)

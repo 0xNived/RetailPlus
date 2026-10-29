@@ -103,6 +103,7 @@ model Workspace {
   dashboards  Dashboard[]
   exportJobs  ExportJob[]
   auditLogs   AuditLog[]
+  retailJobs RetailPipelineJob[]
 
   @@map("workspaces")
 }
@@ -175,6 +176,10 @@ model Dataset {
   cleaningRuns CleaningRun[]
   transformations Transformation[]
   exportJobs  ExportJob[]
+  retailState RetailDatasetState?
+  versions DatasetVersion[]
+  retailCustomers RetailCustomer[]
+  retailJobs RetailPipelineJob[]
 
   @@index([workspaceId, status, updatedAt])
   @@map("datasets")
@@ -302,4 +307,52 @@ model AuditLog {
   @@index([workspaceId, createdAt])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+model RetailDatasetState {
+  datasetId String @id @map("dataset_id") @db.Uuid
+  mapping Json @default("{}")
+  revision Int @default(0)
+  model Json?
+  modelRevision Int? @map("model_revision")
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  dataset Dataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  @@map("retail_dataset_state")
+}
+model DatasetVersion {
+  id String @id @db.Uuid
+  datasetId String @map("dataset_id") @db.Uuid
+  revision Int
+  reason String
+  csvPath String @map("csv_path")
+  parquetPath String @map("parquet_path")
+  checksum String
+  changes Json @default("[]")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  dataset Dataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  @@unique([datasetId, revision])
+  @@map("dataset_versions")
+}
+model RetailCustomer {
+  datasetId String @map("dataset_id") @db.Uuid
+  customerId String @map("customer_id")
+  revision Int
+  document Json
+  dataset Dataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  @@id([datasetId, customerId])
+  @@index([document], type: Gin, map: "retail_customers_document_idx")
+  @@map("retail_customers")
+}
+model RetailPipelineJob {
+  id String @id @db.Uuid
+  workspaceId String @map("workspace_id") @db.Uuid
+  datasetId String? @map("dataset_id") @db.Uuid
+  status String @default("Running")
+  stages Json @default("[]")
+  error String?
+  startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  dataset Dataset? @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  @@map("retail_pipeline_jobs")
 }
