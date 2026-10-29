@@ -1,0 +1,21 @@
+{
+  "name": "retailplus",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "npm@11.13.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "db:generate": "npm run db:generate --workspace=@retailplus/database",
+    "db:migrate": "npm --workspace=@retailplus/database run db:migrate --",
+    "db:deploy": "npm run db:deploy --workspace=@retailplus/database",
+    "db:seed": "npm run db:seed --workspace=@retailplus/database",
+    "db:studio": "npm run db:studio --workspace=@retailplus/database",
+    "dashboard:dev": "npm run dev --workspace=@retailplus/admin-dashboard",
+    "dashboard:build": "npm run build --workspace=@retailplus/admin-dashboard",
+    "api:dev": "python -m uvicorn app.main:app --reload --app-dir services/api-service"
+  }
+}

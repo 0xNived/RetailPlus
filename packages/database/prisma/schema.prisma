@@ -1,0 +1,305 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  ANALYST
+  MEMBER
+  VIEWER
+
+  @@map("user_role")
+}
+
+enum ImportStatus {
+  QUEUED
+  UPLOADING
+  PROFILING
+  NEEDS_REVIEW
+  READY
+  FAILED
+  CANCELLED
+
+  @@map("import_status")
+}
+
+enum DatasetStatus {
+  DRAFT
+  READY
+  ARCHIVED
+
+  @@map("dataset_status")
+}
+
+enum SourceKind {
+  CSV
+  EXCEL
+  PDF
+  DOCX
+  PNG
+  JPEG
+
+  @@map("source_kind")
+}
+
+enum IssueSeverity {
+  INFO
+  WARNING
+  ERROR
+
+  @@map("issue_severity")
+}
+
+enum RunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+
+  @@map("run_status")
+}
+
+enum ExportFormat {
+  CSV
+  PDF
+  JSON
+
+  @@map("export_format")
+}
+
+model User {
+  id           String       @id @default(uuid()) @db.Uuid
+  email        String       @unique @db.Citext
+  passwordHash String?      @map("password_hash")
+  displayName  String?      @map("display_name")
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  memberships  Membership[]
+  importJobs   ImportJob[]  @relation("ImportCreatedBy")
+  cleaningRuns CleaningRun[] @relation("CleaningStartedBy")
+  transformations Transformation[] @relation("TransformationCreatedBy")
+  dashboards   Dashboard[]  @relation("DashboardCreatedBy")
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String       @unique
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  memberships Membership[]
+  importJobs  ImportJob[]
+  datasets    Dataset[]
+  dashboards  Dashboard[]
+  exportJobs  ExportJob[]
+  auditLogs   AuditLog[]
+
+  @@map("workspaces")
+}
+
+model Membership {
+  workspaceId String    @map("workspace_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  role        UserRole  @default(MEMBER)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+model ImportJob {
+  id          String       @id @default(uuid()) @db.Uuid
+  workspaceId String       @map("workspace_id") @db.Uuid
+  createdById String       @map("created_by_id") @db.Uuid
+  status      ImportStatus @default(QUEUED)
+  name        String
+  metadata    Json         @default("{}")
+  startedAt   DateTime?    @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime?    @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User         @relation("ImportCreatedBy", fields: [createdById], references: [id])
+  sourceFiles SourceFile[]
+  datasets    Dataset[]
+
+  @@index([workspaceId, status, createdAt])
+  @@map("import_jobs")
+}
+
+model SourceFile {
+  id          String    @id @default(uuid()) @db.Uuid
+  importJobId String    @map("import_job_id") @db.Uuid
+  kind        SourceKind
+  originalName String   @map("original_name")
+  mimeType    String    @map("mime_type")
+  byteSize    BigInt    @map("byte_size")
+  storageKey  String    @unique @map("storage_key")
+  checksum    String?
+  extraction  Json      @default("{}")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  importJob   ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@index([importJobId])
+  @@map("source_files")
+}
+
+model Dataset {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  importJobId String?       @map("import_job_id") @db.Uuid
+  name        String
+  description String?
+  status      DatasetStatus @default(DRAFT)
+  schemaJson  Json          @default("{}") @map("schema")
+  recordCount BigInt?       @map("record_count")
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  importJob   ImportJob?    @relation(fields: [importJobId], references: [id], onDelete: SetNull)
+  profile     DatasetProfile?
+  qualityIssues DataQualityIssue[]
+  cleaningRuns CleaningRun[]
+  transformations Transformation[]
+  exportJobs  ExportJob[]
+
+  @@index([workspaceId, status, updatedAt])
+  @@map("datasets")
+}
+
+model DatasetProfile {
+  id          String   @id @default(uuid()) @db.Uuid
+  datasetId   String   @unique @map("dataset_id") @db.Uuid
+  summary     Json     @default("{}")
+  healthScore Int?     @map("health_score")
+  profiledAt  DateTime @default(now()) @map("profiled_at") @db.Timestamptz(6)
+  dataset     Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@map("dataset_profiles")
+}
+
+model DataQualityIssue {
+  id          String        @id @default(uuid()) @db.Uuid
+  datasetId   String        @map("dataset_id") @db.Uuid
+  severity    IssueSeverity
+  code        String
+  columnName  String?       @map("column_name")
+  description String
+  affectedRows BigInt?      @map("affected_rows")
+  metadata    Json          @default("{}")
+  resolvedAt  DateTime?     @map("resolved_at") @db.Timestamptz(6)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  dataset     Dataset       @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@index([datasetId, severity, resolvedAt])
+  @@map("data_quality_issues")
+}
+
+model CleaningRun {
+  id          String    @id @default(uuid()) @db.Uuid
+  datasetId   String    @map("dataset_id") @db.Uuid
+  startedById String    @map("started_by_id") @db.Uuid
+  status      RunStatus @default(QUEUED)
+  rules       Json      @default("[]")
+  summary     Json      @default("{}")
+  startedAt   DateTime? @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  dataset     Dataset   @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  startedBy   User      @relation("CleaningStartedBy", fields: [startedById], references: [id])
+
+  @@index([datasetId, status, createdAt])
+  @@map("cleaning_runs")
+}
+
+model Transformation {
+  id          String   @id @default(uuid()) @db.Uuid
+  datasetId   String   @map("dataset_id") @db.Uuid
+  createdById String   @map("created_by_id") @db.Uuid
+  name        String
+  definition  Json
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  dataset     Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  createdBy   User     @relation("TransformationCreatedBy", fields: [createdById], references: [id])
+
+  @@index([datasetId, createdAt])
+  @@map("transformations")
+}
+
+model Dashboard {
+  id          String            @id @default(uuid()) @db.Uuid
+  workspaceId String            @map("workspace_id") @db.Uuid
+  createdById String            @map("created_by_id") @db.Uuid
+  name        String
+  description String?
+  layout      Json              @default("{}")
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User              @relation("DashboardCreatedBy", fields: [createdById], references: [id])
+  widgets     DashboardWidget[]
+
+  @@index([workspaceId, updatedAt])
+  @@map("dashboards")
+}
+
+model DashboardWidget {
+  id          String    @id @default(uuid()) @db.Uuid
+  dashboardId String    @map("dashboard_id") @db.Uuid
+  kind        String
+  title       String
+  position    Json
+  config      Json      @default("{}")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@index([dashboardId])
+  @@map("dashboard_widgets")
+}
+
+model ExportJob {
+  id          String       @id @default(uuid()) @db.Uuid
+  workspaceId String       @map("workspace_id") @db.Uuid
+  datasetId   String?      @map("dataset_id") @db.Uuid
+  format      ExportFormat
+  status      RunStatus    @default(QUEUED)
+  storageKey  String?      @map("storage_key")
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  completedAt DateTime?    @map("completed_at") @db.Timestamptz(6)
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  dataset     Dataset?     @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status, createdAt])
+  @@map("export_jobs")
+}
+
+model AuditLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  actorId     String?   @map("actor_id") @db.Uuid
+  action      String
+  entityType  String    @map("entity_type")
+  entityId    String?   @map("entity_id")
+  metadata    Json      @default("{}")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor       User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
